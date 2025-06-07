@@ -1,9 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Redundant <$>" #-}
 
-import System.FilePath( (</>), (<.>), takeDirectory, isDrive, pathSeparator, getSearchPath, takeDrive )
-import System.Directory (copyFile, getCurrentDirectory, listDirectory, createDirectoryIfMissing, doesFileExist, removeFile, exeExtension, removeDirectory, doesDirectoryExist, setCurrentDirectory, withCurrentDirectory, XdgDirectory (XdgData), getXdgDirectory, getHomeDirectory, getAppUserDataDirectory)
+import System.FilePath( (</>), (<.>), takeDirectory, isDrive, pathSeparator, getSearchPath )
+import System.Directory (copyFile, getCurrentDirectory, listDirectory, createDirectoryIfMissing, doesFileExist, removeFile, exeExtension, removeDirectory, doesDirectoryExist, setCurrentDirectory, withCurrentDirectory, XdgDirectory (XdgData), getXdgDirectory)
 import System.Process (CreateProcess(..), createProcess, shell, StdStream (CreatePipe), waitForProcess)
 import System.IO(hGetContents', hGetContents)
 import Control.Monad (filterM, when, void, unless)
@@ -12,8 +10,6 @@ import System.Exit (ExitCode (..))
 import Prelude hiding (error)
 import qualified Prelude
 import Data.Functor ((<&>))
-import System.Info (os)
-import Data.Char (isSpace)
 
 error :: String -> any
 error = Prelude.error . ("\ESC[91m"++) . (++"\ESC[0m")
@@ -43,7 +39,7 @@ appPath = do
     --     unknown -> error ("your operating system "++show unknown++" is unsupported")
     -- when (any isSpace tentative) $ error ("path "++show tentative++" to the app has whitespaces")
     -- let path = tentative
-    path <- getAppUserDataDirectory "haskellSupport"
+    path <- getXdgDirectory XdgData "haskellSupport"
     createDirectoryIfMissing True path
     pure path
 
@@ -58,7 +54,7 @@ compileHaskellSupportAt exeDir = do
     compilationSucceeded <- withCurrentDirectory exeDir $ run ( "ghc -i"++show exeDir++" -O2 "++show (exeDir</>"haskellSupport.hs") )
     if compilationSucceeded
         then mapM_ (removeFile.(exeDir</>)) . filter (/=("haskellSupport"<.>exeExtension)) =<< listDirectory exeDir
-        else error "ghc compilation of haskellSupport failed"
+        else error "could not complete ghc compilation of haskellSupport"
 
     writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++ show (exeDir</>"haskellSupport"<.>exeExtension) ++"\n    }\n  }")
 
@@ -68,7 +64,7 @@ copy :: FilePath -> To -> FilePath -> IO ()
 copy cabalExecutable To exeDir = do
 
     cabalAccessible <-  run "cabal --help"
-    unless cabalAccessible $ error "cabal cannot be accessed here"
+    unless cabalAccessible $ error "the cabal package manager for haskell cannot be accessed from the \"userSpace\" directory"
 
     void $ run ("cabal install "++cabalExecutable)
 
@@ -79,18 +75,18 @@ copy cabalExecutable To exeDir = do
     exeExists <- doesFileExist (cabalInstallDir</>cabalExecutable<.>exeExtension)
     if exeExists
         then copyFile (cabalInstallDir</>cabalExecutable<.>exeExtension) (exeDir</>cabalExecutable<.>exeExtension)
-        else error ("Search for "++show (cabalExecutable<.>exeExtension)++" in "++show cabalInstallDir++" failed.")
+        else error ("Could not find "++show (cabalExecutable<.>exeExtension)++", a required haskell package, upon searching for it in "++show cabalInstallDir++", the standard location for haskell packages installed through the cabal haskell package manager")
 
 main :: IO ()
 main = do
 
     maybeUserSpace <- fmap listToMaybe . filterM (doesFileExist.(</>"hie.yaml").takeDirectory) . takeWhile (not.isDrive) . iterate takeDirectory =<< getCurrentDirectory
-    let userSpace = ( `fromMaybe` maybeUserSpace ) (error "Could not find user folder (sibling of \"hie.yaml\") among the ancestor folders of the current working folder" )
+    let userSpace = ( `fromMaybe` maybeUserSpace ) (error "please ensure that the current working directory is inside the \"userSpace\" folder" )
     setCurrentDirectory userSpace
 
     exeDir <- appPath <&> (</>"bin")
     createDirectoryIfMissing True exeDir
-    (elem exeDir <$> getSearchPath) >>= (`unless` error (show exeDir++"has not been added to PATH"))
+    (elem exeDir <$> getSearchPath) >>= (`unless` error ("please add " ++ show exeDir ++ " to PATH"))
 
     vscodeAccessible <- run "code --help"
     if vscodeAccessible
@@ -102,7 +98,7 @@ main = do
 
     compileHaskellSupportAt exeDir
 
-    writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++(exeDir</>"haskellSupport"<.>exeExtension)++"\n    }\n  }")
+    writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++ show (exeDir</>"haskellSupport"<.>exeExtension)++"\n    }\n  }")
 
     -- _ <- if os=="mingw32" 
         -- then run "powershell -ExecutionPolicy Bypass -File addToPath.ps1"
@@ -111,13 +107,13 @@ main = do
     copy "hlint" To exeDir
     copy "markdown-unlit" To exeDir
 
-    run "ghcup install hls" >>= ( `unless` error "haskell-language-server (HLS) installation failed" )
+    run "ghcup install hls" >>= ( `unless` error "Could not install haskell-language-server (HLS), the program that communicates between haskell and the text editor" )
 
     putStrLn "\ESC[32m\n\nhaskellSupport installation complete!\n\n\ESC[0m"
 
-    firstExists <- doesFileExist "first.hs"
+    firstExists <- doesFileExist "helloWorld.hs"
     let runWithoutWaiting = void.createProcess.shell in case ( vscodeAccessible , firstExists ) of
-        (True,True) -> run ("code \"."++[pathSeparator]++"\"") >> runWithoutWaiting "code --goto first.hs:1:1"
+        (True,True) -> run ("code \"."++[pathSeparator]++"\"") >> runWithoutWaiting "code --goto helloWorld.hs:1:1"
         (True,False) -> runWithoutWaiting ("code \"."</>"\"")
-        (False,True) -> runWithoutWaiting "haskellSupport \"first.hs\" loadGHCiInShell"
+        (False,True) -> runWithoutWaiting "haskellSupport \"helloWorld.hs\" loadGHCiInShell"
         (False,False) -> runWithoutWaiting "ghci"

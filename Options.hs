@@ -24,6 +24,6 @@ options tree =
     ||> iterate (listDir|>head)
     |> takeWhile isDirectory
     |> concatMap listDir
-    |> filter ((&&)<$>isFile<*>name|>(=="options.txt"))
+    |> filter ((&&)<$>isFile<*>name|>(=="hsSupport.conf"))
     |> map (format.contents)
     |> concat
