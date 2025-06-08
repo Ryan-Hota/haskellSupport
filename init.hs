@@ -86,7 +86,7 @@ main = do
 
     exeDir <- appPath <&> (</>"bin")
     createDirectoryIfMissing True exeDir
-    (elem exeDir <$> getSearchPath) >>= (`unless` error ("please add " ++ show exeDir ++ " to PATH"))
+    (elem exeDir <$> getSearchPath) >>= (`unless` error ("please PERMANENTLY add " ++ show exeDir ++ " to PATH"))
 
     vscodeAccessible <- run "code --help"
     if vscodeAccessible
