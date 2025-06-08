@@ -56,7 +56,7 @@ takeName =
 takeDirectory :: AssuredToBe pathType -> AssuredToBe pathType
 takeDirectory ( AssuredToBe pathType path ) = AssuredToBe pathType $ F.takeDirectory path
 
-makeRelativeTo :: AssuredToBe pathType -> AssuredToBe pathType -> FilePath
+makeRelativeTo :: RootRelativeFilePath -> RootRelativeFilePath -> FilePath
 makeRelativeTo ( AssuredToBe _ path ) ( AssuredToBe _ path' ) = 
     concat [ ".."++[F.pathSeparator] | c <- pathSeparator:path , F.isPathSeparator c]
     F.</> path'

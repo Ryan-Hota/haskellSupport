@@ -67,7 +67,7 @@ main = do
     writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++ show (exeDir</>"haskellSupport"<.>exeExtension)++"\n    }\n  }")
 
     addToPATH exeDir
-    (elem exeDir <$> getSearchPath) >>= (`unless` instruction ("Please PERMANENTLY add \n\n" ++ exeDir ++ "\n\n to your PATH.\n\nIf you really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions."))
+    (elem exeDir <$> getSearchPath) >>= (`unless` instruction ("Please PERMANENTLY add \n\n" ++ exeDir ++ "\n\n to your PATH.\n\nIf you really really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions."))
 
     run "ghcup install hls" >>= ( `unless` error "Could not install haskell-language-server (HLS), the program that enables communication between haskell and the text editor.\nIf you are sure that you already have HLS, please ignore this error, and for your purposes, installation of haskellSupport is complete!" )
 
