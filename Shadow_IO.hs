@@ -16,8 +16,8 @@ import Control.Monad ((>=>), forM_, void)
 import Modules(modules)
 import Directory(path)
 import System.Info(os)
-import qualified FilePath_Internal_IO as FI
 
+import qualified FilePath_Internal_IO as FI
 rootOfShadowOf :: Target -> RootRelativeFilePath
 rootOfShadowOf target = help $ targetPath target where
     help (FI.AssuredToBe pathType _) = FI.AssuredToBe pathType "preShadowRoot" </> "shadowRoot"
