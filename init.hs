@@ -10,16 +10,23 @@ import System.Exit (ExitCode (..))
 import Prelude hiding (error)
 import qualified Prelude
 import Data.Functor ((<&>))
+import System.Environment (setEnv)
+import System.Info (os)
+
+highlight :: [Int] -> String ->  String
+highlight l str = (f <$>id<*>reverse) s where
+    f x y = "\n\ESC[6m" ++ x ++ "\ESC[0m" ++ concat [ "\ESC[" ++ show n ++ "m" | n <- l ] ++ "\n\n" ++ str ++ "\n\n\ESC[0m" ++ "\ESC[6m" ++ y ++ "\ESC[0m"
+    s = "*\n**\n****\n********\n****************\n********************************\n****************************************************************" 
 
 error :: String -> any
-error = Prelude.error . ("\ESC[91m"++) . (++"\ESC[0m")
+error = Prelude.error . highlight [91] . (++"\n\nPlease try to resolve the above error and run again.\nIf you are unsure about how to do this, or have faced and tried to resolve this error a few times already, please contact support.")
 
--- warning :: String -> IO Bool
--- warning = (True <$) . putStrLn . ("\ESC[33m"++) . (++"\ESC[0m")
+instruction :: String -> any
+instruction = Prelude.error . highlight [96] . (++"\n\nPlease try to follow the above instruction(s) and run again.\nIf you are unsure about how to do this, or have seen and tried to follow the instruction(s) a few times already, please contact support.")
 
 run :: String -> IO Bool
 run str = do
-    putStrLn ( "\ESC[32mRUNNING COMMAND - " ++ str ++ "\ESC[0m")
+    putStrLn ( "\ESC[92mRUNNING COMMAND - " ++ str ++ "\ESC[0m")
     (_,Just hout,Just herr,ph) <- createProcess ((shell str){std_out=CreatePipe,std_err=CreatePipe})
     putStrLn =<< hGetContents hout
     putStrLn =<< hGetContents herr
@@ -28,43 +35,61 @@ run str = do
         ExitSuccess -> True
         ExitFailure _ -> False
 
-installVscodeExtension :: String -> IO Bool
-installVscodeExtension extId = run ("code --install-extension "++extId)
-
 appPath :: IO FilePath
 appPath = do
-    -- tentative <- case os of 
-    --     "mingw32" -> ( takeDrive <$> getHomeDirectory ) <&> (</>"haskellSupport")
-    --     "linux" -> getXdgDirectory XdgData "haskellSupport"
-    --     unknown -> error ("your operating system "++show unknown++" is unsupported")
-    -- when (any isSpace tentative) $ error ("path "++show tentative++" to the app has whitespaces")
-    -- let path = tentative
     path <- getXdgDirectory XdgData "haskellSupport"
     createDirectoryIfMissing True path
     pure path
 
-compileHaskellSupportAt :: FilePath -> IO ()
-compileHaskellSupportAt exeDir = do
+main :: IO ()
+main = do
 
-    root <- takeDirectory <$> getCurrentDirectory
+    maybeUserSpace <- fmap listToMaybe . filterM (doesFileExist.(</>"hie.yaml").takeDirectory) . takeWhile (not.isDrive) . iterate takeDirectory =<< getCurrentDirectory
+    let userSpace = ( `fromMaybe` maybeUserSpace ) (instruction "Please ensure that the current working directory is inside the \"userSpace\" folder" )
+    setCurrentDirectory userSpace
 
-    let localExeDir = root</>"executable"
-    listDirectory localExeDir >>= mapM_ (copyFile<$>(localExeDir</>)<*>(exeDir</>))
+    vscodeExists <- run "code --help"
+    if vscodeExists
+        then do
+            void $ installVscodeExtension "mogeko.haskell-extension-pack"
+            void $ installVscodeExtension "formulahendry.code-runner"
+            void $ installVscodeExtension "tomoki1207.pdf"
+        else doesDirectoryExist ".vscode" >>= ( `when` removeDirectory ".vscode" )
 
-    compilationSucceeded <- withCurrentDirectory exeDir $ run ( "ghc -i"++show exeDir++" -O2 "++show (exeDir</>"haskellSupport.hs") )
-    if compilationSucceeded
-        then mapM_ (removeFile.(exeDir</>)) . filter (/=("haskellSupport"<.>exeExtension)) =<< listDirectory exeDir
-        else error "could not complete ghc compilation of haskellSupport"
+    exeDir <- appPath <&> (</>"bin")
+    createDirectoryIfMissing True exeDir
 
-    writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++ show (exeDir</>"haskellSupport"<.>exeExtension) ++"\n    }\n  }")
+    installCabalPackage "hlint" AndCopyItTo exeDir
+    installCabalPackage "markdown-unlit" AndCopyItTo exeDir
 
-data To = To
+    compileHaskellSupportAt exeDir
 
-copy :: FilePath -> To -> FilePath -> IO ()
-copy cabalExecutable To exeDir = do
+    writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++ show (exeDir</>"haskellSupport"<.>exeExtension)++"\n    }\n  }")
+
+    addToPATH exeDir
+    (elem exeDir <$> getSearchPath) >>= (`unless` instruction ("Please PERMANENTLY add \n\n" ++ exeDir ++ "\n\n to PATH.\n\nIf you really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions."))
+
+    run "ghcup install hls" >>= ( `unless` error "Could not install haskell-language-server (HLS), the program that enables communication between haskell and the text editor.\nIf you are sure that you already have HLS, please ignore this error, and for your purposes, installation of haskellSupport is complete!" )
+
+    putStrLn "\ESC[92m\n\nhaskellSupport installation complete!\n\n\ESC[0m"
+
+    helloWorldFileExists <- doesFileExist "helloWorld.hs"
+    let runWithoutWaiting = void.createProcess.shell in case ( vscodeExists , helloWorldFileExists ) of
+        (True,True) -> void $ run ("code \"."++[pathSeparator]++"\" --goto helloWorld.hs:1:1")
+        (True,False) -> runWithoutWaiting ("code \"."</>"\"")
+        (False,True) -> runWithoutWaiting "haskellSupport \"helloWorld.hs\" loadGHCiInShell"
+        (False,False) -> runWithoutWaiting "ghci"
+
+installVscodeExtension :: String -> IO Bool
+installVscodeExtension extId = run ("code --install-extension "++extId)
+
+data FillerWord = AndCopyItTo
+
+installCabalPackage :: FilePath -> FillerWord -> FilePath -> IO ()
+installCabalPackage cabalExecutable AndCopyItTo exeDir = do
 
     cabalAccessible <-  run "cabal --help"
-    unless cabalAccessible $ error "the cabal package manager for haskell cannot be accessed from the \"userSpace\" directory"
+    unless cabalAccessible $ error "The \"cabal\" package manager for haskell cannot be accessed from the \"userSpace\" directory"
 
     void $ run ("cabal install "++cabalExecutable)
 
@@ -75,45 +100,27 @@ copy cabalExecutable To exeDir = do
     exeExists <- doesFileExist (cabalInstallDir</>cabalExecutable<.>exeExtension)
     if exeExists
         then copyFile (cabalInstallDir</>cabalExecutable<.>exeExtension) (exeDir</>cabalExecutable<.>exeExtension)
-        else error ("Could not find "++show (cabalExecutable<.>exeExtension)++", a required haskell package, upon searching for it in "++show cabalInstallDir++", the standard location for haskell packages installed through the cabal haskell package manager")
+        else error ("Could not find "++show (cabalExecutable<.>exeExtension)++", a required haskell package, upon searching for it in "++show cabalInstallDir++", the standard location for haskell packages installed through the \"cabal\" haskell package manager")
 
-main :: IO ()
-main = do
+compileHaskellSupportAt :: FilePath -> IO ()
+compileHaskellSupportAt exeDir = do
 
-    maybeUserSpace <- fmap listToMaybe . filterM (doesFileExist.(</>"hie.yaml").takeDirectory) . takeWhile (not.isDrive) . iterate takeDirectory =<< getCurrentDirectory
-    let userSpace = ( `fromMaybe` maybeUserSpace ) (error "please ensure that the current working directory is inside the \"userSpace\" folder" )
-    setCurrentDirectory userSpace
+    tmpDir <- appPath <&> (</>"temporary")
+    createDirectoryIfMissing True tmpDir
 
-    exeDir <- appPath <&> (</>"bin")
-    createDirectoryIfMissing True exeDir
-    (elem exeDir <$> getSearchPath) >>= (`unless` error ("please PERMANENTLY add " ++ show exeDir ++ " to PATH"))
+    root <- takeDirectory <$> getCurrentDirectory
+    let localExeDir = root</>"executable"
+    listDirectory localExeDir >>= mapM_ (copyFile<$>(localExeDir</>)<*>(tmpDir</>))
 
-    vscodeAccessible <- run "code --help"
-    if vscodeAccessible
-        then do
-            void $ installVscodeExtension "mogeko.haskell-extension-pack"
-            void $ installVscodeExtension "formulahendry.code-runner"
-            void $ installVscodeExtension "tomoki1207.pdf"
-        else doesDirectoryExist ".vscode" >>= ( `when` removeDirectory ".vscode" )
+    compilationSucceeded <- withCurrentDirectory exeDir $ run ( "ghc -i"++show tmpDir++" -O2 "++show (tmpDir</>"haskellSupport.hs") )
+    if compilationSucceeded
+        then copyFile (tmpDir</>"haskellSupport"<.>exeExtension) (exeDir</>"haskellSupport"<.>exeExtension)
+        else error "Could not complete ghc compilation of haskellSupport"
 
-    compileHaskellSupportAt exeDir
-
-    writeFile (".."</>"hie"<.>"yaml") ("cradle: {\n  bios: {\n    program: "++ show (exeDir</>"haskellSupport"<.>exeExtension)++"\n    }\n  }")
-
-    -- _ <- if os=="mingw32" 
-        -- then run "powershell -ExecutionPolicy Bypass -File addToPath.ps1"
-        -- else run "echo \"remember to add "++show (show exeDir)++" to PATH\""
-
-    copy "hlint" To exeDir
-    copy "markdown-unlit" To exeDir
-
-    run "ghcup install hls" >>= ( `unless` error "Could not install haskell-language-server (HLS), the program that communicates between haskell and the text editor" )
-
-    putStrLn "\ESC[32m\n\nhaskellSupport installation complete!\n\n\ESC[0m"
-
-    firstExists <- doesFileExist "helloWorld.hs"
-    let runWithoutWaiting = void.createProcess.shell in case ( vscodeAccessible , firstExists ) of
-        (True,True) -> run ("code \"."++[pathSeparator]++"\"") >> runWithoutWaiting "code --goto helloWorld.hs:1:1"
-        (True,False) -> runWithoutWaiting ("code \"."</>"\"")
-        (False,True) -> runWithoutWaiting "haskellSupport \"helloWorld.hs\" loadGHCiInShell"
-        (False,False) -> runWithoutWaiting "ghci"
+addToPATH :: String -> IO ()
+addToPATH exeDir = do
+    setEnv "HASKELLSUPPORT_EXECUTABLES_DIRECTORY_PATH" exeDir
+    case os of {
+        "mingw32" -> void $ run "powershell -ExecutionPolicy ByPass -File ..\\init\\addToPATH.ps1" ;
+        _ -> putStrLn "automated addition of haskellSupport to PATH is still unsupported for your operating system\n"
+        }
