@@ -11,10 +11,10 @@ import Data.Char (isSpace)
 import Data.Functor ((<&>))
 import Directory_IO ( withCurrentDirectory, removePathForcibly,fileTreeAlong, mkLinkAt)
 import System.Directory (createDirectoryIfMissing, getAppUserDataDirectory)
-import System.FilePath (takeDrive, isPathSeparator)
+import System.FilePath (takeDrive, isPathSeparator, takeDirectory, pathSeparator)
 import Control.Monad ((>=>), forM_, void)
-import Modules(modules)
-import Directory(path)
+import Modules(modules, dotsToSeps)
+import Directory(path, FileTree (..))
 import System.Info(os)
 
 import qualified FilePath_Internal_IO as FI
@@ -43,9 +43,12 @@ withShadowOf target action = void $ do
     createDirectoryIfMissing True $ unWrap shadowDir
     withCurrentDirectory shadowDir ( do
         fileTreeAlongTarget <- fileTreeAlong $ targetPath target
-        forM_ ( modules fileTreeAlongTarget ) ( path |> mkLinkAt shadowDir )
+        forM_ ( modules fileTreeAlongTarget ) ( linkAt shadowDir )
         action shadowDir
         )
+    where
+        linkAt shadowDir x = let p = path x ; n = name x in
+            mkLinkAt (shadowDir</>dotsToSeps n) p
 
 clean :: Target -> IO ()
 clean = rootOfShadowOf |> removePathForcibly

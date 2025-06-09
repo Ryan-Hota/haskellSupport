@@ -1,14 +1,22 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 module Modules (
-    modules , globalModules , localModules, isModule
+    modules , globalModules , localModules, isModule, dotsToSeps
 ) where
 import Directory (FileTree(..), isFile, name, isDirectory)
 import Data.Char (isUpper)
 import Utilities ((|>), fromMaybe)
-import System.FilePath (takeExtension)
+import System.FilePath (takeExtension, pathSeparator, takeDirectory)
 import FilePath (RootRelativeFilePath)
 import Data.List (find, transpose)
 import Nub (nubOrdOn)
+
+dotsToSeps :: String -> FilePath
+dotsToSeps str = case str of
+    ".hs" -> ".hs"
+    ".lhs" -> ".lhs"
+    '.':cs -> pathSeparator : dotsToSeps cs
+    c:cs -> c : dotsToSeps cs
+    "" -> error "non-haskell module \""++str ++ "\" was given to dotsToSeps"
 
 (<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<&&>) = liftA2 (&&)

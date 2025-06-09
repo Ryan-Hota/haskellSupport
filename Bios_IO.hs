@@ -13,6 +13,7 @@ import qualified Options
 import Directory_IO (mkLinkAt, fileTreeAlong, listPermittedDirectory, doesFileExist, removePathForcibly, fileTreeUnder)
 import qualified Modules
 import Control.Monad ((>=>), filterM)
+import System.FilePath ( pathSeparator, takeDirectory )
 
 biosReceiver :: IO String
 biosReceiver = getEnv "HIE_BIOS_OUTPUT"
@@ -39,12 +40,13 @@ biosOptions =
 
 -- | add the action of making the links to modules at the root\\
 -- as a side effect in /modules/
-biosModules :: FileTree RootRelativeFilePath -> IO [String]
+biosModules :: FileTree RootRelativeFilePath -> IO [FilePath]
 biosModules =
     Modules.modules
     |> mapM linkAtRoot
     where
-        linkAtRoot x = let p = path x in mkLinkAt (rootOf p) p
+        linkAtRoot x = let p = path x ; n = name x in
+            mkLinkAt (rootOf p</>takeDirectory (Modules.dotsToSeps n)) p
 
 {- |
 
@@ -92,11 +94,11 @@ test target =
     >> main target
 
 clean :: Target -> IO ()
-clean = 
+clean =
     ( rootOf.targetPath )
     |> fileTreeUnder
-    |> fmap ( 
-        listDir 
-        |> filter Modules.isModule 
+    |> fmap (
+        listDir
+        |> filter Modules.isModule
         )
     >=> mapM_ (path|>removePathForcibly)

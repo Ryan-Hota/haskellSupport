@@ -11,7 +11,7 @@ module FilePath (
     dropTrailingPathSeparator,
     splitPath,
     takeName,
-    takeDirectory,
+    -- takeDirectory,
     makeRelativeTo
 ) where
 
@@ -53,8 +53,8 @@ takeName =
     |> takeWhile (not.F.isPathSeparator)
     |> reverse
 
-takeDirectory :: AssuredToBe pathType -> AssuredToBe pathType
-takeDirectory ( AssuredToBe pathType path ) = AssuredToBe pathType $ F.takeDirectory path
+-- takeDirectory :: AssuredToBe pathType -> AssuredToBe pathType
+-- takeDirectory ( AssuredToBe pathType path ) = AssuredToBe pathType $ F.takeDirectory path
 
 makeRelativeTo :: RootRelativeFilePath -> RootRelativeFilePath -> FilePath
 makeRelativeTo ( AssuredToBe _ path ) ( AssuredToBe _ path' ) = 
