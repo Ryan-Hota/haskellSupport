@@ -24,11 +24,9 @@ import System.IO.Unsafe (unsafeInterleaveIO)
 import Directory (FileTree, FileTree (..))
 import System.FilePath (equalFilePath)
 import qualified System.Directory as D
-import qualified System.FilePath as F
 import IO (readPermittedFile)
 import OS_IO (mkHardLink)
 import System.Directory (doesPathExist)
-import Modules (dotsToSeps)
 
 removePathForcibly :: Absolutable pathType => AssuredToBe pathType -> IO ()
 removePathForcibly = unWrap |> D.removePathForcibly
@@ -45,10 +43,9 @@ mkLinkAt dir file =
             removePathForcibly (dir</>name)
             >> mkLinkAt dir file
         else 
-            D.createDirectoryIfMissing True (unWrap dir)
-            >> mkHardLink (unWrap file) (unWrap (dir</>name))
+            mkHardLink (unWrap file) (unWrap (dir</>name))
             >> pure name
-    where name = dotsToSeps $ takeName file
+    where name = takeName file
 
 doesFileExist :: Absolutable pathType => AssuredToBe pathType -> IO Bool
 doesFileExist = unWrap |> D.doesFileExist
