@@ -9,7 +9,7 @@ import Target_IO (targetPath, Target)
 import Utilities ((|>), (||>))
 import Data.Char (isSpace)
 import Data.Functor ((<&>))
-import Directory_IO ( withCurrentDirectory, removePathForcibly,fileTreeAlong, mkLinkAt)
+import Directory_IO ( withCurrentDirectory, removePathForcibly,fileTreeAlong, mkHaskellLinkAt)
 import System.Directory (createDirectoryIfMissing, getAppUserDataDirectory)
 import System.FilePath (takeDrive, isPathSeparator)
 import Control.Monad ((>=>), forM_, void)
@@ -43,7 +43,7 @@ withShadowOf target action = void $ do
     createDirectoryIfMissing True $ unWrap shadowDir
     withCurrentDirectory shadowDir ( do
         fileTreeAlongTarget <- fileTreeAlong $ targetPath target
-        forM_ ( modules fileTreeAlongTarget ) ( path |> mkLinkAt shadowDir )
+        forM_ ( modules fileTreeAlongTarget ) ( path |> mkHaskellLinkAt shadowDir )
         action shadowDir
         )
 

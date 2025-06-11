@@ -4,13 +4,13 @@ module Bios_IO (
     clean
 ) where
 
-import System.Environment (getEnv, setEnv)
+import System.Environment (getEnv, setEnv, getArgs)
 import Target_IO (Target, targetPath)
 import Utilities ( (|>))
-import FilePath (RootRelativeFilePath, rootOf, unWrap, (</>), takeName)
+import FilePath (RootRelativeFilePath, rootOf, unWrap, (</>), takeName, takeDirectory)
 import Directory (FileTree (..))
 import qualified Options
-import Directory_IO (mkLinkAt, fileTreeAlong, listPermittedDirectory, doesFileExist, removePathForcibly, fileTreeUnder)
+import Directory_IO (mkHaskellLinkAt, fileTreeAlong, listPermittedDirectory, doesFileExist, removePathForcibly, fileTreeUnder)
 import qualified Modules
 import Control.Monad ((>=>), filterM)
 
@@ -20,7 +20,7 @@ biosReceiver = getEnv "HIE_BIOS_OUTPUT"
 sendToBiosReceiver :: [String] -> IO ()
 sendToBiosReceiver lines_ =
     biosReceiver
-    >>= ( \ receiver -> writeFile receiver (unlines lines_) )
+    >>= ( `writeFile` unlines lines_ )
 
 -- | list of options which begin with '-', as those are the only ones accepted by haskell-language-server
 biosOptions :: FileTree RootRelativeFilePath -> IO [String]
@@ -44,7 +44,7 @@ biosModules =
     Modules.modules
     |> mapM linkAtRoot
     where
-        linkAtRoot x = let p = path x in mkLinkAt (rootOf p) p
+        linkAtRoot x = let p = path x in mkHaskellLinkAt (rootOf p) p
 
 {- |
 
@@ -85,18 +85,19 @@ main =
         <$> biosOptions
         <*> biosModules
     >=> sendToBiosReceiver
+    >=> const ( print =<< getArgs )
 
 test :: Target -> IO ()
 test target =
-    setEnv "HIE_BIOS_OUTPUT" ( unWrap (rootOf (targetPath target)</>"HIE_BIOS_OUTPUT") )
+    setEnv "HIE_BIOS_OUTPUT" "TEST_TEST_TEST_HIE_BIOS_OUTPUT_TEST_TEST_TEST.txt"
     >> main target
 
 clean :: Target -> IO ()
-clean = 
+clean =
     ( rootOf.targetPath )
     |> fileTreeUnder
-    |> fmap ( 
-        listDir 
-        |> filter Modules.isModule 
+    |> fmap (
+        listDir
+        |> filter Modules.isModule
         )
     >=> mapM_ (path|>removePathForcibly)

@@ -19,9 +19,8 @@ format =
 
 -- | list of options
 options :: FileTree RootRelativeFilePath -> [String]
-options tree =
-    tree
-    ||> iterate (listDir|>head)
+options =
+    iterate (listDir|>head)
     |> takeWhile isDirectory
     |> concatMap listDir
     |> filter ((&&)<$>isFile<*>name|>(=="hsSupport.conf"))

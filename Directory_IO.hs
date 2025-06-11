@@ -3,7 +3,7 @@ module Directory_IO (
     doesFileExist,
     withCurrentDirectory,
     listPermittedDirectory,
-    mkLinkAt,
+    mkHaskellLinkAt,
     fileTreeUnder,
     getCurrentDirectory,
     removePathForcibly
@@ -22,10 +22,10 @@ import FilePath
 import Utilities ((|>), ifThenElse, (||>))
 import System.IO.Unsafe (unsafeInterleaveIO)
 import Directory (FileTree, FileTree (..))
-import System.FilePath (equalFilePath)
+import System.FilePath (equalFilePath, (-<.>))
 import qualified System.Directory as D
 import IO (readPermittedFile)
-import OS_IO (mkHardLink)
+import OS_IO (mkLink)
 import System.Directory (doesPathExist)
 
 removePathForcibly :: Absolutable pathType => AssuredToBe pathType -> IO ()
@@ -35,16 +35,12 @@ removePathForcibly = unWrap |> D.removePathForcibly
 -- make a  __/hard/__  link located in @dir@ that points to the @file@\\
 -- and\\
 -- return the name of the created link
-mkLinkAt :: (Absolutable pathType0, Absolutable pathType1) => AssuredToBe pathType0 -> AssuredToBe pathType1 -> IO String
-mkLinkAt dir file =
-    doesPathExist ( unWrap (dir</>name) )
-    >>= \ b -> if b
-        then 
-            removePathForcibly (dir</>name)
-            >> mkLinkAt dir file
-        else 
-            mkHardLink (unWrap file) (unWrap (dir</>name))
-            >> pure name
+mkHaskellLinkAt :: (Absolutable pathType0, Absolutable pathType1) => AssuredToBe pathType0 -> AssuredToBe pathType1 -> IO String
+mkHaskellLinkAt dir file =
+    removePathForcibly (dir</>(name-<.>"hs"))
+    >> removePathForcibly (dir</>(name-<.>"lhs"))
+    >> mkLink (unWrap file) (unWrap (dir</>name))
+    >> pure name
     where name = takeName file
 
 doesFileExist :: Absolutable pathType => AssuredToBe pathType -> IO Bool
