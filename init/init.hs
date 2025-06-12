@@ -12,6 +12,7 @@ import Prelude hiding (error)
 import qualified Prelude
 import Data.Functor ((<&>))
 import System.Environment (setEnv, lookupEnv, getEnv)
+import Data.Char (isSpace)
 
 highlight :: [Int] -> String ->  String
 highlight l str = (f <$>id<*>reverse) s where
@@ -65,7 +66,11 @@ main ={- (<*) (putStrLn "hello") $ const (pure ()) $ -}do
 
     (_,Just hout,_,_) <- createProcess ((shell "ghc --version"){std_out=CreatePipe})
     ghcVersion <- hGetContents' hout
-    let hlsName = "haskell-language-server-"++ init (drop 57 ghcVersion)
+    let ghcVersionParser = \case {
+        'T':'h':'e':' ':'G':'l':'o':'r':'i':'o':'u':'s':' ':'G':'l':'a':'s':'g':'o':'w':' ':'H':'a':'s':'k':'e':'l':'l':' ':'C':'o':'m':'p':'i':'l':'a':'t':'i':'o':'n':' ':'S':'y':'s':'t':'e':'m':',':' ':'v':'e':'r':'s':'i':'o':'n':' ':num -> takeWhile (not.isSpace) num ;
+        _ -> error "Unknown ghc --version syntax, contact a teaching assistant"
+        }
+    let hlsName = "haskell-language-server-"++ ghcVersionParser ghcVersion
     run (hlsName++" --help") >>= (`unless` instruction ("The required version of the haskell language server protocol, namely "++show hlsName++" cannot be accessed from within the \"haskell\" directory.\nIt is either not in PATH or not yet installed.\nIt was supposed to be automatically installed along with the installing of haskell.\n\nMaybe you should install haskell once more according to the given instructions, or if you know that you have the "++hlsName++" executable on your device, you should add its parent folder to PATH." ))
 
     compileHaskellSupportAt exeDir
@@ -92,7 +97,12 @@ installCabalPackage cabalExecutable AndCopyItTo path = do
 
     (_,Just hout,_,_) <- createProcess ((shell "cabal path"){std_out=CreatePipe})
     out <- hGetContents' hout
-    let cabalInstallDir = drop 12 . last . lines $ out
+    let cabalInstallDirParser = \case {
+        '\n':'i':'n':'s':'t':'a':'l':'l':'d':'i':'r':':':rest -> dropWhile isSpace . head . lines $ rest ;
+        _ : cs -> cabalInstallDirParser cs ;
+        "" -> error "unknown cabal path syntax, contact a teaching assistant"
+    }
+    let cabalInstallDir = cabalInstallDirParser out
 
     exeExists <- doesFileExist (cabalInstallDir</>cabalExecutable<.>exeExtension)
     if exeExists
