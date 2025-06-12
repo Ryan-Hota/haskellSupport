@@ -23,11 +23,11 @@ error :: String -> any
 error = Prelude.error . highlight [91] . (++"\n\nPlease try to resolve the above error and run again.\nIf you are unsure about how to do this, or have faced and tried to resolve this error a few times already, please contact a teaching assistant.")
 
 instruction :: String -> any
-instruction = Prelude.error . highlight [96] . (++"\n\nPlease try to follow the above instruction(s) and run again.\nIf you are unsure about how to do this, or have seen and tried to follow the instruction(s) a few times already, please contact a teaching assistant.")
+instruction = Prelude.error . highlight [95] . (++"\n\nPlease try to follow the above instruction(s) and run again.\nIf you are unsure about how to do this, or have seen and tried to follow the instruction(s) a few times already, please contact a teaching assistant.")
 
 run :: String -> IO Bool
 run str = do
-    putStrLn ( "\ESC[92mRUNNING COMMAND - " ++ str ++ "\ESC[0m")
+    putStrLn ( "\ESC[96mRUNNING COMMAND - " ++ str ++ "\ESC[0m")
     (_,Just hout,Just herr,ph) <- createProcess ((shell str){std_out=CreatePipe,std_err=CreatePipe})
     putStrLn =<< hGetContents hout
     putStrLn =<< hGetContents herr
@@ -100,7 +100,7 @@ installCabalPackage cabalExecutable AndCopyItTo path = do
     let cabalInstallDirParser = \case {
         '\n':'i':'n':'s':'t':'a':'l':'l':'d':'i':'r':':':rest -> dropWhile isSpace . head . lines $ rest ;
         _ : cs -> cabalInstallDirParser cs ;
-        "" -> error "unknown cabal path syntax, contact a teaching assistant"
+        "" -> error "Unknown cabal path syntax, contact a teaching assistant"
     }
     let cabalInstallDir = cabalInstallDirParser out
 
