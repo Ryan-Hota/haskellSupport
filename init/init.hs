@@ -51,16 +51,15 @@ main ={- (<*) (putStrLn "hello") $ const (pure ()) $ -}do
 
     vscodeExists <- run "code --help"
     when vscodeExists $ do
-        void $ installVscodeExtension "mogeko.haskell-extension-pack"
+        void $ installVscodeExtension "haskell.haskell"
         void $ installVscodeExtension "formulahendry.code-runner"
         void $ installVscodeExtension "tomoki1207.pdf"
-    
+
     exeDir <- appPath <&> (</>"bin")
     createDirectoryIfMissing True exeDir
 
     run "cabal --help" >>= (`unless` instruction "The \"cabal\" build-tool for haskell cannot be accessed from within the \"haskell\" directory.\nIt is either not in PATH or not yet installed.\nIt was supposed to be automatically installed along with the installing of haskell.\n\nMaybe you should install haskell once more according to the given instructions, or if you know that you have the cabal executable on your device, you should add its parent folder to PATH.")
-    installCabalPackage "hlint" AndCopyItTo exeDir
-    installCabalPackage "markdown-unlit" AndCopyItTo exeDir
+    installCabalPackage "hlint"
 
     addToPATH exeDir
 
@@ -88,10 +87,8 @@ main ={- (<*) (putStrLn "hello") $ const (pure ()) $ -}do
 installVscodeExtension :: String -> IO Bool
 installVscodeExtension extId = run ("code --install-extension "++extId)
 
-data FillerWord = AndCopyItTo
-
-installCabalPackage :: FilePath -> FillerWord -> FilePath -> IO ()
-installCabalPackage cabalExecutable AndCopyItTo path = do
+installCabalPackage :: String -> IO ()
+installCabalPackage cabalExecutable = do
 
     void $ run ("cabal install "++cabalExecutable)
 
@@ -105,9 +102,7 @@ installCabalPackage cabalExecutable AndCopyItTo path = do
     let cabalInstallDir = cabalInstallDirParser out
 
     exeExists <- doesFileExist (cabalInstallDir</>cabalExecutable<.>exeExtension)
-    if exeExists
-        then copyFile (cabalInstallDir</>cabalExecutable<.>exeExtension) (path</>cabalExecutable<.>exeExtension)
-        else error ("Could not find "++show (cabalExecutable<.>exeExtension)++", a required haskell package, upon searching for it in "++show cabalInstallDir++", the standard location for haskell packages installed through the \"cabal\"build-tool for haskell")
+    unless exeExists $ error ("Could not find "++show (cabalExecutable<.>exeExtension)++", a required haskell package, upon searching for it in "++show cabalInstallDir++", the standard location for haskell packages installed through the \"cabal\"build-tool for haskell")
 
 compileHaskellSupportAt :: FilePath -> IO ()
 compileHaskellSupportAt path = do
@@ -125,14 +120,14 @@ compileHaskellSupportAt path = do
         else error "Could not complete ghc compilation of haskellSupport"
 
 addToPATH :: FilePath -> IO ()
-addToPATH path = (>>=) (elem path <$> getSearchPath) $ flip unless $ do
+addToPATH path = (>>=) (elem path <$> getSearchPath) . flip unless $ (do
     attempt1 <-
         setEnv "HASKELLSUPPORT_EXECUTABLES_DIRECTORY_PATH" path
         >> run ("powershell -ExecutionPolicy ByPass -File "++".."</>"init"</>"addToPATH.ps1")
         >>= ( \ psScriptRan -> ( psScriptRan && ) . (/=Just "failed") <$> lookupEnv "ADD_HASKELLSUPPORT_TO_PATH_FAILURE")
     setEnv "ADD_HASKELLSUPPORT_TO_PATH_FAILURE" "reset"
     attempt2 <- addToShellConfig path
-    unless ( attempt1 || attempt2 ) (instruction ("Please PERMANENTLY add \n\n" ++ path ++ "\n\n to your PATH.\nRemember: You will need to open a new session since the changes to PATH will not be visible in this session.\n\nIf you really really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions and add the (path/to/hlint/executable/) for haskell-linter. (ask support)") )
+    unless ( attempt1 || attempt2 ) (instruction ("Please PERMANENTLY add \n\n" ++ path ++ "\n\n to your PATH.\nRemember: You will need to open a new session since the changes to PATH will not be visible in this session.\n\nIf you really really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions and add the (path/to/hlint/executable/) for haskell-linter. (ask support)") ))
 
 data Shell = Bash | ZShell | Fish
     deriving Show
@@ -172,8 +167,7 @@ expressionToAdd path = \case
     Fish   -> "\n# added by haskellSupport\nfish_add_path \""++path++"\"\n"
 
 addToShellConfig :: FilePath -> IO Bool
-addToShellConfig path = (>>=) findShell $ (\action-> \case {Just shell_->action shell_;Nothing->pure False}) $ \shell_ ->  do
-    let xprToAppend = expressionToAdd path shell_
+addToShellConfig path = (>>=) findShell . (\action-> \case {Just shell_->action shell_;Nothing->pure False}) $ \ shell_ ->  do
     shellConfigPath <- profileFile shell_
     homeDir <- getEnv "HOME"
     withCurrentDirectory homeDir $ do
@@ -182,5 +176,5 @@ addToShellConfig path = (>>=) findShell $ (\action-> \case {Just shell_->action 
         shellConfigPathExists <- doesFileExist shellConfigPath
         unless shellConfigPathExists $ writeFile shellConfigPath ""
         shellConfigPathWritable <- writable <$> getPermissions shellConfigPath
-        when shellConfigPathWritable $ appendFile shellConfigPath xprToAppend
+        when shellConfigPathWritable . appendFile shellConfigPath $ expressionToAdd path shell_
         pure shellConfigPathWritable
