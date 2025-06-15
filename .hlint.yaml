@@ -1,0 +1,3 @@
+- group: {name: future, enabled: true}
+- group: {name: teaching, enabled: true}
+- group: {name: dollar, enabled: true}

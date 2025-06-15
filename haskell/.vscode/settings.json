@@ -1,0 +1,15 @@
+{
+    // haskell
+    "haskell.manageHLS": "GHCup",
+    // use this if you use GHCup, for automatic ghcup upgrades and quality-of-life
+
+    // code runner
+    "code-runner.saveFileBeforeRun":true,
+    "code-runner.runInTerminal": true,
+    "code-runner.defaultLanguage": "haskell",
+    "code-runner.executorMap": {"haskell":"haskellSupport \"$fileName\" loadGHCiInShell\n:load \"$fileName\""},  
+    "code-runner.enableAppInsights": false,
+
+    // vscode
+    "editor.acceptSuggestionOnEnter": "off"
+}

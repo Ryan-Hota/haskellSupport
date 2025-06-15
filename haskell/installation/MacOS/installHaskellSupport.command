@@ -1,0 +1,6 @@
+#!/bin/sh
+cd "$(dirname "$0")"
+runghc --help >/dev/null 2>/dev/null || ( echo "haskell could not be run here," && echo "which means that haskell is not yet installed or was not installed properly." && echo "If you have not tried to install haskell yet, please follow the instructions to install haskell." && echo "If you have already tried to install haskell, please contact a teaching assistant." )
+runghc --help >/dev/null 2>/dev/null && runghc "../../../init/init.hs"
+wait
+read -rsn1 -p "Press any key to exit"

@@ -1,0 +1,2 @@
+helloWorld :: Bool
+helloWorld = True
