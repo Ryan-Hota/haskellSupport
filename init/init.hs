@@ -123,7 +123,7 @@ addToPATH path = (>>=) (elem path <$> getSearchPath) . flip unless $ (do
         >>= ( \ psScriptRan -> ( psScriptRan && ) . (/=Just "failed") <$> lookupEnv "ADD_HASKELLSUPPORT_TO_PATH_FAILURE")
     setEnv "ADD_HASKELLSUPPORT_TO_PATH_FAILURE" "reset"
     attempt2 <- addToShellConfig path
-    unless ( attempt1 || attempt2 ) (instruction ("Please PERMANENTLY add \n\n" ++ path ++ "\n\n to your PATH.\nRemember: You will need to open a new session since the changes to PATH will not be visible in this session.\n\nIf you really really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions and add the (path/to/hlint/executable/) for haskell-linter. (ask support)") ))
+    unless ( attempt1 || attempt2 ) (instruction ("Please PERMANENTLY add \n\n" ++ path ++ "\n\n to your PATH.\nRemember: You will need to open a new session since the changes to PATH will not be visible in this session.\n\nIf you really really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions.") ))
 
 data Shell = Bash | ZShell | Fish deriving Show
 
