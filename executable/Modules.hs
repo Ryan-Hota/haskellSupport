@@ -9,7 +9,6 @@ import System.FilePath (takeExtension)
 import FilePath (RootRelativeFilePath)
 import Data.List (find, transpose)
 import Nub (nubOrdOn)
-import Control.Applicative(liftA2)
 
 (<&&>) :: Applicative f => f Bool -> f Bool -> f Bool
 (<&&>) = liftA2 (&&)
