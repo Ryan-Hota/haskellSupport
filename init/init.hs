@@ -63,13 +63,9 @@ main ={- (<*) (putStrLn "hello") $ const (pure ()) $ -}do
 
     addToPATH exeDir
 
-    (_,Just hout,_,_) <- createProcess ((shell "ghc --version"){std_out=CreatePipe})
-    ghcVersion <- hGetContents' hout
-    let ghcVersionParser = \case {
-        'T':'h':'e':' ':'G':'l':'o':'r':'i':'o':'u':'s':' ':'G':'l':'a':'s':'g':'o':'w':' ':'H':'a':'s':'k':'e':'l':'l':' ':'C':'o':'m':'p':'i':'l':'a':'t':'i':'o':'n':' ':'S':'y':'s':'t':'e':'m':',':' ':'v':'e':'r':'s':'i':'o':'n':' ':num -> takeWhile (not.isSpace) num ;
-        _ -> error "Unknown ghc --version syntax, contact a teaching assistant"
-        }
-    let hlsName = "haskell-language-server-"++ ghcVersionParser ghcVersion
+    (_,Just hout,_,_) <- createProcess ((shell "ghc --numeric-version"){std_out=CreatePipe})
+    ghcVersion <- init <$> hGetContents' hout
+    let hlsName = "haskell-language-server-" ++ ghcVersion
     run (hlsName++" --help") >>= (`unless` instruction ("The required version of the haskell language server protocol, namely "++show hlsName++" cannot be accessed from within the \"haskell\" directory.\nIt is either not in PATH or not yet installed.\nIt was supposed to be automatically installed along with the installing of haskell.\n\nMaybe you should install haskell once more according to the given instructions, or if you know that you have the "++hlsName++" executable on your device, you should add its parent folder to PATH." ))
 
     compileHaskellSupportAt exeDir
@@ -129,8 +125,7 @@ addToPATH path = (>>=) (elem path <$> getSearchPath) . flip unless $ (do
     attempt2 <- addToShellConfig path
     unless ( attempt1 || attempt2 ) (instruction ("Please PERMANENTLY add \n\n" ++ path ++ "\n\n to your PATH.\nRemember: You will need to open a new session since the changes to PATH will not be visible in this session.\n\nIf you really really don't want to add it to PATH, you can add it temporarily and run again, but please remember to do the same in all future haskell-running terminal sessions and add the (path/to/hlint/executable/) for haskell-linter. (ask support)") ))
 
-data Shell = Bash | ZShell | Fish
-    deriving Show
+data Shell = Bash | ZShell | Fish deriving Show
 
 profileFile :: Shell -> IO FilePath
 profileFile shell_ =
